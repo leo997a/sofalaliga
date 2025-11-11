@@ -14,7 +14,33 @@ Please provide the data in a single, valid JSON object format. Do not include an
 
 The JSON object should have keys 'club_stats' and/or 'player_stats' based on the user's request.
 For each player, you must include their full name, current club, and a publicly accessible URL for their photo ('photo_url').
-For each club, you must include its name and a publicly accessible URL for its logo ('logo_url').`;
+For each club, you must include its name and a publicly accessible URL for its logo ('logo_url').
+
+The JSON object must follow this Typescript interface:
+interface LaLigaData {
+  club_stats?: ClubStatCategory[];
+  player_stats?: PlayerStatCategory[];
+}
+interface ClubStatCategory {
+  ranking_type: string;
+  data: Club[];
+}
+interface PlayerStatCategory {
+  ranking_type: string;
+  data: Player[];
+}
+interface Player {
+  full_name: string;
+  current_club: string;
+  photo_url: string;
+  [key: string]: any;
+}
+interface Club {
+  club_name: string;
+  logo_url: string;
+  [key: string]: any;
+}
+`;
 
 
 const buildPrompt = (clubStats: string[], playerStats: string[]): string => {
@@ -41,25 +67,20 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
     const prompt = buildPrompt(clubStats, playerStats);
 
     const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction: systemInstruction,
-            tools: [{googleSearch: {}}],
+        model: "gemini-1.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        systemInstruction: {
+            role: "system",
+            parts: [{ text: systemInstruction }],
+        },
+        tools: [{ googleSearch: {} }],
+        generationConfig: {
+            responseMimeType: "application/json",
         },
     });
 
     try {
-        const rawText = response.text;
-        const startIndex = rawText.indexOf('{');
-        const endIndex = rawText.lastIndexOf('}');
-        
-        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-            throw new Error("No valid JSON object found in the AI response.");
-        }
-
-        const jsonStr = rawText.substring(startIndex, endIndex + 1);
-        const parsedData = JSON.parse(jsonStr) as LaLigaData;
+        const parsedData = JSON.parse(response.candidates[0].content.parts[0].text) as LaLigaData;
         
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] | undefined;
         
@@ -67,7 +88,7 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
 
         return parsedData;
     } catch (e) {
-        console.error("Failed to parse JSON response:", response.text, e);
+        console.error("Failed to parse JSON response:", response, e);
         throw new Error("The AI returned real-time data in an invalid format. Please try adjusting your selection or try again.");
     }
 };
