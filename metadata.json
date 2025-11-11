@@ -1,0 +1,5 @@
+{
+  "name": "La Liga Stats AI",
+  "description": "An AI-powered tool to generate and display real-time La Liga statistics for clubs and players, providing a comprehensive overview of team performance and individual achievements.",
+  "requestFramePermissions": []
+}
