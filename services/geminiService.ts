@@ -2,11 +2,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { LaLigaData, GroundingChunk } from '../types';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
+const apiKey = import.meta.env.VITE_API_KEY;
+if (!apiKey) {
+    throw new Error("VITE_API_KEY environment variable not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey });
 
 const systemInstruction = `You are a sports data expert. Your task is to find real, 100% accurate, up-to-date La Liga statistics for the current season using your search capabilities.
 
