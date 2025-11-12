@@ -55,8 +55,6 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'club':
-        return <StatSelector title="Club Statistics" options={CLUB_STATS_OPTIONS} selected={selectedClubStats} setSelected={setSelectedClubStats} />;
       case 'player':
         return <StatSelector title="Player Statistics" options={PLAYER_STATS_OPTIONS} selected={selectedPlayerStats} setSelected={setSelectedPlayerStats} />;
       case 'export':
@@ -79,8 +77,9 @@ const App: React.FC = () => {
             </div>
           </div>
         );
+      case 'club':
       default:
-        return null;
+        return <StatSelector title="Club Statistics" options={CLUB_STATS_OPTIONS} selected={selectedClubStats} setSelected={setSelectedClubStats} />;
     }
   };
 
