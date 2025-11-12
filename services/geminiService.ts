@@ -80,11 +80,12 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
         tools: [{googleSearch: {}}],
     });
 
-    const result = await generativeModel.generateContent(prompt);
-    const response = result.response;
-
     try {
+        const result = await generativeModel.generateContent(prompt);
+        const response = result.response;
         const rawText = response.text();
+        console.log("Gemini API Response:", rawText);
+
         const startIndex = rawText.indexOf('{');
         const endIndex = rawText.lastIndexOf('}');
         
@@ -101,7 +102,7 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
 
         return parsedData;
     } catch (e) {
-        console.error("Failed to parse JSON response:", response.text(), e);
-        throw new Error("The AI returned real-time data in an invalid format. Please try adjusting your selection or try again.");
+        console.error("Error fetching or parsing La Liga stats:", e);
+        throw new Error("Failed to fetch or parse data from the AI. Please check the console for more details.");
     }
 };
