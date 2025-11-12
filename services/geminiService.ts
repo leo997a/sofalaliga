@@ -2,12 +2,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { LaLigaData, GroundingChunk } from '../types';
 
-const apiKey = import.meta.env.VITE_API_KEY;
-if (!apiKey) {
-    throw new Error("VITE_API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey });
+// Note: API key check and AI initialization is now handled within fetchLaLigaStats
+// to prevent the app from crashing on startup if the key is not set.
 
 const systemInstruction = `You are a sports data expert. Your task is to find real, 100% accurate, up-to-date La Liga statistics for the current season using your search capabilities.
 
@@ -65,6 +61,12 @@ const buildPrompt = (clubStats: string[], playerStats: string[]): string => {
 
 
 export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[]): Promise<LaLigaData> => {
+    const apiKey = import.meta.env.VITE_API_KEY;
+    if (!apiKey) {
+        throw new Error("API Key is missing. Please set the VITE_API_KEY environment variable in your deployment settings.");
+    }
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = buildPrompt(clubStats, playerStats);
 
     const response = await ai.models.generateContent({
