@@ -5,11 +5,11 @@ import { getClubLogoUrl, getPlayerPhotoUrl } from './localData';
 /**
  * NOTE:
  * - Do NOT throw at import time. Check API key at runtime when the function runs,
- *   so server can start and we can surface errors in logs instead of crashing the app.
+ *   so the server can start and we can surface errors in logs instead of crashing the app.
  */
 
 const createAiClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.API_KEY;AIzaSyBgY8vr5J3SYud4MxUy8omLxOzDTJnIoE0 
   if (!apiKey) {
     throw new Error("API_KEY environment variable not set. Please provide API_KEY.");
   }
@@ -28,19 +28,25 @@ const buildPrompt = (clubStats: string[], playerStats: string[]): string => {
   let prompt = `Please find the latest La Liga statistics for the current season.`;
 
   if (clubStats.length > 0) {
-    prompt += `\n\nClub statistics to find: ${clubStats.join(', ')}.
+    prompt += `
+    
+Club statistics to find: ${clubStats.join(', ')}.
 - For "League Table (by points)", return all 20 teams.
 - For other club stats, return the top 10.
 - Structure: Each category must be an object with 'ranking_type' and a 'data' array of club objects. Each club object should include 'club_name' and relevant stats (position, points, played, etc.).`;
   }
 
   if (playerStats.length > 0) {
-    prompt += `\n\nPlayer statistics to find: ${playerStats.join(', ')}.
+    prompt += `
+    
+Player statistics to find: ${playerStats.join(', ')}.
 - For player stats return the top 10 players per category.
 - Structure: Each category must be an object with 'ranking_type' and a 'data' array of player objects. Each player should include 'full_name', 'current_club' and relevant stats (goals, assists, matches, etc.).`;
   }
 
-  prompt += `\n\nRespond ONLY with one JSON object that follows the interface LaLigaData.`;
+  prompt += `
+
+Respond ONLY with one JSON object that follows the interface LaLigaData.`;
   return prompt;
 };
 
@@ -74,8 +80,7 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
   try {
     response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-      // Support either string-style or the newer structured contents depending on SDK.
-      // Use structured content if supported; fallback handled below.
+      // Use structured content form (supported by many SDK versions)
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       systemInstruction: {
         role: "system",
@@ -85,7 +90,6 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
       generationConfig: {
         responseMimeType: "application/json",
       },
-      // Consider adding reasonable timeout configuration in production SDK call if available.
     });
   } catch (err) {
     console.error("AI request failed:", err);
@@ -95,7 +99,6 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
   // Normalize candidate/text sources to extract JSON robustly
   let parsedData: LaLigaData | null = null;
 
-  // 1) Common new API path: response.candidates[0].content.parts[0].text
   try {
     const candidateText =
       response?.candidates?.[0]?.content?.parts?.[0]?.text ||
@@ -109,7 +112,7 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
   }
 
   if (!parsedData) {
-    // Try to log full response for debugging (will appear in server logs)
+    // Log full response for debugging
     console.error("Unable to parse JSON from AI response:", JSON.stringify(response, null, 2));
     throw new Error("The AI returned data in an unexpected format. See server logs for details.");
   }
