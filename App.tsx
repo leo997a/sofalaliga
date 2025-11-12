@@ -37,10 +37,17 @@ const App: React.FC = () => {
         Array.from(selectedClubStats), 
         Array.from(selectedPlayerStats)
       );
+      
+      // Validate the response
+      if (!result || (result.club_stats?.length === 0 && result.player_stats?.length === 0)) {
+        setError("No data was returned. Please try again or adjust your selections.");
+        return;
+      }
+      
       setData(result);
     } catch (e) {
       console.error(e);
-      setError(e instanceof Error ? e.message : "An unknown error occurred.");
+      setError(e instanceof Error ? e.message : "An unknown error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -111,16 +118,16 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary p-4 sm:p-8">
-      <div className="container mx-auto max-w-5xl bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-gray-700">
-        <header className="p-6 border-b border-gray-700 text-center">
-          <h1 className="text-4xl font-extrabold text-white">
+    <div className="min-h-screen bg-brand-primary p-4 sm:p-6 md:p-8">
+      <div className="container mx-auto max-w-6xl bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+        <header className="p-4 sm:p-6 md:p-8 border-b border-gray-700 text-center">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white">
             <span className="text-brand-accent">La Liga</span> Stats AI
           </h1>
-          <p className="text-brand-text-secondary mt-2">Real-time, AI-powered statistics for the Spanish league</p>
+          <p className="text-brand-text-secondary mt-2 text-sm sm:text-base">Real-time, AI-powered statistics for the Spanish league</p>
         </header>
         
-        <nav className="flex justify-center border-b border-gray-700">
+        <nav className="flex justify-center border-b border-gray-700 overflow-x-auto">
           <TabButton tabId="club" label="Club Statistics" />
           <TabButton tabId="player" label="Player Statistics" />
           <TabButton tabId="export" label="Generate & View" />
@@ -148,12 +155,24 @@ const ResultsDisplay: React.FC<{ data: LaLigaData }> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
   
+  // Validate data before rendering
+  if (!data) {
+    return <div className="text-center py-8 text-brand-text-secondary">No data available</div>;
+  }
+  
   const clubDataKeysToIgnore = ['club', 'club_name', 'logo_url'];
   const playerDataKeysToIgnore = ['name', 'full_name', 'club', 'current_club', 'photo_url'];
-
+  
+  // Sanitize data to prevent XSS
+  const sanitizeData = (data: any): any => {
+    if (typeof data === 'string') {
+      return data.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    return data;
+  };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8">
       <div className="flex justify-end mb-4">
         <button
           onClick={handleDownload}
@@ -162,21 +181,22 @@ const ResultsDisplay: React.FC<{ data: LaLigaData }> = ({ data }) => {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Download JSON
+          <span className="hidden sm:inline">Download JSON</span>
+          <span className="sm:hidden">Download</span>
         </button>
       </div>
 
       {data.club_stats && data.club_stats.map((category: ClubStatCategory, index: number) => (
-        <div key={index}>
+        <div key={index} className="overflow-hidden">
           <h3 className="text-xl font-bold mb-4 text-brand-accent">{category.ranking_type}</h3>
           <div className="overflow-x-auto bg-brand-primary/50 rounded-lg">
             <table className="min-w-full text-sm">
               <thead className="bg-brand-secondary text-left">
                 <tr>
-                  <th className="p-3">Rank</th>
-                  <th className="p-3">Club</th>
+                  <th className="p-2 sm:p-3">Rank</th>
+                  <th className="p-2 sm:p-3">Club</th>
                   {category.data.length > 0 && Object.keys(category.data[0]).filter(k => !clubDataKeysToIgnore.includes(k)).map(header => (
-                     <th key={header} className="p-3 capitalize">{header.replace(/_/g, ' ')}</th>
+                     <th key={header} className="p-2 sm:p-3 capitalize hidden sm:table-cell">{header.replace(/_/g, ' ')}</th>
                   ))}
                 </tr>
               </thead>
@@ -185,16 +205,16 @@ const ResultsDisplay: React.FC<{ data: LaLigaData }> = ({ data }) => {
                   const clubName = club.club_name || club.club;
                   return (
                     <tr key={`${clubName}-${idx}`} className="border-b border-gray-700 hover:bg-brand-secondary/50">
-                      <td className="p-3 font-semibold">{club.position || idx + 1}</td>
-                      <td className="p-3 flex items-center gap-3 font-medium text-white">
+                      <td className="p-2 sm:p-3 font-semibold">{club.position || idx + 1}</td>
+                      <td className="p-2 sm:p-3 flex items-center gap-2 sm:gap-3 font-medium text-white">
                           {club.logo_url ? 
-                            <img src={club.logo_url} alt={`${clubName} logo`} className="w-6 h-6 object-contain"/>
-                            : <FootballIcon className="w-6 h-6 text-brand-text-secondary" />
+                            <img src={sanitizeData(club.logo_url)} alt={`${sanitizeData(clubName)} logo`} className="w-6 h-6 sm:w-8 sm:h-8 object-contain"/>
+                            : <FootballIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand-text-secondary" />
                           }
-                          <span>{clubName}</span>
+                          <span className="text-sm sm:text-base">{sanitizeData(clubName)}</span>
                       </td>
                       {Object.entries(club).filter(([k]) => !clubDataKeysToIgnore.includes(k)).map(([key, value]) => (
-                        <td key={key} className="p-3">{String(value)}</td>
+                        <td key={key} className="p-2 sm:p-3 hidden sm:table-cell">{sanitizeData(value)}</td>
                       ))}
                     </tr>
                   )
@@ -208,30 +228,30 @@ const ResultsDisplay: React.FC<{ data: LaLigaData }> = ({ data }) => {
       {data.player_stats && data.player_stats.map((category: PlayerStatCategory, index: number) => (
         <div key={index}>
           <h3 className="text-xl font-bold mb-4 text-brand-accent">{category.ranking_type}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {category.data.map((player: Player) => {
               const playerName = player.full_name || player.name;
               const playerClub = player.current_club || player.club;
               return (
-                <div key={playerName} className="bg-brand-secondary p-4 rounded-lg shadow-md hover:shadow-lg hover:ring-2 hover:ring-brand-accent transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full border-2 border-brand-accent bg-brand-primary flex items-center justify-center overflow-hidden">
+                <div key={`${playerName}-${Math.random()}`} className="bg-brand-secondary p-4 rounded-lg shadow-md hover:shadow-lg hover:ring-2 hover:ring-brand-accent transition-all">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-brand-accent bg-brand-primary flex items-center justify-center overflow-hidden">
                       {player.photo_url ? (
-                          <img src={player.photo_url} alt={playerName} className="w-full h-full object-cover"/>
+                          <img src={sanitizeData(player.photo_url)} alt={sanitizeData(playerName)} className="w-full h-full object-cover"/>
                       ) : (
-                          <PersonIcon className="w-8 h-8 text-brand-text-secondary" />
+                          <PersonIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand-text-secondary" />
                       )}
                     </div>
                     <div>
-                      <p className="font-bold text-white">{playerName}</p>
-                      <p className="text-sm text-brand-text-secondary">{playerClub}</p>
+                      <p className="font-bold text-white text-sm sm:text-base truncate max-w-[120px] sm:max-w-[150px]">{sanitizeData(playerName)}</p>
+                      <p className="text-xs sm:text-sm text-brand-text-secondary truncate max-w-[120px] sm:max-w-[150px]">{sanitizeData(playerClub)}</p>
                     </div>
                   </div>
-                  <div className="mt-4 space-y-1 text-sm">
-                    {Object.entries(player).filter(([k]) => !playerDataKeysToIgnore.includes(k)).map(([key, value]) => (
+                  <div className="mt-3 sm:mt-4 space-y-1 text-xs sm:text-sm">
+                    {Object.entries(player).filter(([k]) => !playerDataKeysToIgnore.includes(k)).slice(0, 3).map(([key, value]) => (
                       <div key={key} className="flex justify-between">
-                        <span className="text-brand-text-secondary capitalize">{key.replace(/_/g, ' ')}:</span>
-                        <span className="font-semibold text-white">{String(value)}</span>
+                        <span className="text-brand-text-secondary capitalize truncate max-w-[80px]">{sanitizeData(key.replace(/_/g, ' '))}:</span>
+                        <span className="font-semibold text-white truncate max-w-[60px] text-right">{sanitizeData(String(value))}</span>
                       </div>
                     ))}
                   </div>
@@ -248,8 +268,8 @@ const ResultsDisplay: React.FC<{ data: LaLigaData }> = ({ data }) => {
             <ul className="list-disc list-inside text-sm space-y-1">
                 {data.sources.map((source, index) => (
                     source.web && <li key={index}>
-                        <a href={source.web.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                            {source.web.title || source.web.uri}
+                        <a href={sanitizeData(source.web.uri)} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                            {sanitizeData(source.web.title || source.web.uri)}
                         </a>
                     </li>
                 ))}
