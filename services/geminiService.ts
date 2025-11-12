@@ -84,7 +84,7 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
   let response: any;
   try {
     response = await ai.models.generateContent({
-      model: "gemini-pro",
+      model: "gemini-1.5-flash",
       // Use structured content form (supported by many SDK versions)
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       systemInstruction: {
