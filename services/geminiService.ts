@@ -8,13 +8,43 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const systemInstruction = `You are a sports data expert. Your task is to find real, 100% accurate, up-to-date La Liga statistics for the current season using your search capabilities.
+const systemInstruction = `You are a sports data expert specializing in La Liga. Your task is to retrieve accurate, up-to-date statistics for the current season using your search capabilities.
 
-Please provide the data in a single, valid JSON object format. Do not include any text, markdown, or code blocks outside of the JSON object itself. The final output MUST be only the JSON object.
+You MUST format your entire response as a single, valid JSON object. Do not include any text, markdown, or code blocks before or after the JSON object.
 
-The JSON object should have keys 'club_stats' and/or 'player_stats' based on the user's request.
-For each player, you must include their full name, current club, and a publicly accessible URL for their photo ('photo_url').
-For each club, you must include its name and a publicly accessible URL for its logo ('logo_url').`;
+The JSON structure should be:
+{
+  "club_stats": [
+    {
+      "ranking_type": "string",
+      "data": [
+        {
+          "club_name": "string",
+          "logo_url": "string (publicly accessible URL, optional)",
+          /* other relevant stats */
+        }
+      ]
+    }
+  ],
+  "player_stats": [
+    {
+      "ranking_type": "string",
+      "data": [
+        {
+          "full_name": "string",
+          "current_club": "string",
+          "photo_url": "string (publicly accessible URL, optional)",
+          /* other relevant stats */
+        }
+      ]
+    }
+  ]
+}
+
+- For each player, include 'full_name' and 'current_club'. If you can find a 'photo_url', include it.
+- For each club, include 'club_name'. If you can find a 'logo_url', include it.
+- Only include the 'club_stats' or 'player_stats' keys if they were requested by the user.
+- Ensure all statistical data is as current as possible.`;
 
 
 const buildPrompt = (clubStats: string[], playerStats: string[]): string => {
