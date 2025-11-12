@@ -11,6 +11,8 @@ import { FootballIcon, PersonIcon } from './components/icons';
 
 type Tab = 'club' | 'player' | 'export';
 
+const IS_API_KEY_SET = import.meta.env.VITE_API_KEY && import.meta.env.VITE_API_KEY.length > 0;
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('club');
   const [selectedClubStats, setSelectedClubStats] = useState<Set<string>>(new Set());
@@ -87,6 +89,26 @@ const App: React.FC = () => {
       {label}
     </button>
   );
+
+  if (!IS_API_KEY_SET) {
+    return (
+      <div className="min-h-screen bg-red-900/80 text-white flex flex-col items-center justify-center p-8 text-center">
+        <div className="bg-red-800 p-10 rounded-2xl shadow-2xl border-2 border-red-600 max-w-2xl">
+          <h1 className="text-4xl font-bold mb-4">Configuration Error</h1>
+          <p className="text-xl mb-6">The <code className="bg-red-900/50 px-2 py-1 rounded-md text-red-300">VITE_API_KEY</code> environment variable is not set.</p>
+          <p className="text-lg">This application cannot function without a valid API key. If you are the owner of this application, please follow these steps:</p>
+          <ol className="text-left list-decimal list-inside my-6 bg-red-900/50 p-6 rounded-lg space-y-2">
+            <li>Obtain a valid API key from your AI service provider (e.g., Google AI Studio).</li>
+            <li>In your deployment service (e.g., Netlify, Vercel), navigate to your project's settings.</li>
+            <li>Find the "Environment Variables" or "Deploy Settings" section.</li>
+            <li>Add a new environment variable with the key <code className="bg-red-900/50 px-2 py-1 rounded-md text-red-300">VITE_API_KEY</code> and paste your key as the value.</li>
+            <li>Redeploy your application for the changes to take effect.</li>
+          </ol>
+          <p className="text-sm text-red-300">This message is only visible because the API key is missing. It will disappear once the key is correctly configured.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-primary p-4 sm:p-8">
