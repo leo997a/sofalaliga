@@ -9,7 +9,7 @@ import { getClubLogoUrl, getPlayerPhotoUrl } from './localData';
  */
 
 const createAiClient = () => {
-  const apiKey = process.env.API_KEY;AIzaSyBgY8vr5J3SYud4MxUy8omLxOzDTJnIoE0 
+  const apiKey = process.env.API_KEY;
   if (!apiKey) {
     throw new Error("API_KEY environment variable not set. Please provide API_KEY.");
   }
