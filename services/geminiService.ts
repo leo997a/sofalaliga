@@ -2,134 +2,165 @@ import { GoogleGenAI } from "@google/genai";
 import { LaLigaData, GroundingChunk } from '../types';
 import { getClubLogoUrl, getPlayerPhotoUrl } from './localData';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
+/**
+ * NOTE:
+ * - Do NOT throw at import time. Check API key at runtime when the function runs,
+ *   so server can start and we can surface errors in logs instead of crashing the app.
+ */
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const createAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY environment variable not set. Please provide API_KEY.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 const systemInstruction = `You are a sports data expert specializing in La Liga. Your task is to retrieve accurate, up-to-date statistics for the current season.
 
 **CRITICAL INSTRUCTIONS:**
-1.  **MUST USE SEARCH:** You MUST use the provided Google Search tool for EVERY statistic requested. Do not use your internal knowledge. The data must be from the current La Liga season.
-2.  **STRICT JSON FORMAT:** Your entire response MUST be a single, valid JSON object. Do not include any text, markdown, or code blocks before or after the JSON object.
+1. MUST USE SEARCH: Use the provided web search tool for every statistic requested.
+2. STRICT JSON FORMAT: Return a single valid JSON object and nothing else.
 
-The JSON structure should be:
-{
-  "club_stats": [
-    {
-      "ranking_type": "string",
-      "data": [
-        {
-          "club_name": "string",
-          "logo_url": "string (publicly accessible URL, optional)",
-          /* other relevant stats */
-        }
-      ]
-    }
-  ],
-  "player_stats": [
-    {
-      "ranking_type": "string",
-      "data": [
-        {
-          "full_name": "string",
-          "current_club": "string",
-          "photo_url": "string (publicly accessible URL, optional)",
-          /* other relevant stats */
-        }
-      ]
-    }
-  ]
-}
-
-- For each player, include 'full_name' and 'current_club'. If you can find a 'photo_url', include it.
-- For each club, include 'club_name'. If you can find a 'logo_url', include it.
-- Only include the 'club_stats' or 'player_stats' keys if they were requested by the user.
-- Ensure all statistical data is as current as possible by strictly relying on the search tool results.`;
-
+Return JSON matching the LaLigaData shape. For players include full_name and current_club; for clubs include club_name.`;
 
 const buildPrompt = (clubStats: string[], playerStats: string[]): string => {
-    let prompt = `Please find the latest La Liga statistics for the current season.`;
-    
-    if (clubStats.length > 0) {
-        prompt += `\n\nClub statistics to find: ${clubStats.join(', ')}.
-        - For "League Table (by points)", you MUST return all 20 teams.
-        - For all other club stats, return the top 10.
-        - Structure: Each category should be an object with 'ranking_type' and a 'data' array of club objects. Club objects need all relevant stats for that ranking (e.g., position, points, played, won, drawn, lost for League Table).`;
-    }
+  let prompt = `Please find the latest La Liga statistics for the current season.`;
 
-    if (playerStats.length > 0) {
-        prompt += `\n\nPlayer statistics to find: ${playerStats.join(', ')}.
-        - For all player stats, return the top 10 players.
-        - Structure: Each category should be an object with 'ranking_type' and a 'data' array of player objects. Player objects need all relevant stats for that ranking (e.g., goals, assists, matches_played for Top Scorers).`;
-    }
-    
-    return prompt;
+  if (clubStats.length > 0) {
+    prompt += `\n\nClub statistics to find: ${clubStats.join(', ')}.
+- For "League Table (by points)", return all 20 teams.
+- For other club stats, return the top 10.
+- Structure: Each category must be an object with 'ranking_type' and a 'data' array of club objects. Each club object should include 'club_name' and relevant stats (position, points, played, etc.).`;
+  }
+
+  if (playerStats.length > 0) {
+    prompt += `\n\nPlayer statistics to find: ${playerStats.join(', ')}.
+- For player stats return the top 10 players per category.
+- Structure: Each category must be an object with 'ranking_type' and a 'data' array of player objects. Each player should include 'full_name', 'current_club' and relevant stats (goals, assists, matches, etc.).`;
+  }
+
+  prompt += `\n\nRespond ONLY with one JSON object that follows the interface LaLigaData.`;
+  return prompt;
 };
 
+const safeParseJsonFromText = (text: string): any => {
+  if (!text) return null;
+
+  // Try direct parse first
+  try {
+    return JSON.parse(text);
+  } catch {
+    // fallback: find first "{" and last "}" and parse substring
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+    if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+      return null;
+    }
+    const jsonStr = text.substring(startIndex, endIndex + 1);
+    try {
+      return JSON.parse(jsonStr);
+    } catch (err) {
+      return null;
+    }
+  }
+};
 
 export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[]): Promise<LaLigaData> => {
-    const prompt = buildPrompt(clubStats, playerStats);
+  const ai = createAiClient();
+  const prompt = buildPrompt(clubStats, playerStats);
 
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction: systemInstruction,
-            tools: [{googleSearch: {}}],
-        },
+  let response: any;
+  try {
+    response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      // Support either string-style or the newer structured contents depending on SDK.
+      // Use structured content if supported; fallback handled below.
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: systemInstruction }],
+      },
+      tools: [{ googleSearch: {} }],
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+      // Consider adding reasonable timeout configuration in production SDK call if available.
     });
+  } catch (err) {
+    console.error("AI request failed:", err);
+    throw new Error("Failed to contact the AI service. Check API key and network connectivity.");
+  }
 
-    try {
-        const rawText = response.text;
-        const startIndex = rawText.indexOf('{');
-        const endIndex = rawText.lastIndexOf('}');
-        
-        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-            throw new Error("No valid JSON object found in the AI response.");
+  // Normalize candidate/text sources to extract JSON robustly
+  let parsedData: LaLigaData | null = null;
+
+  // 1) Common new API path: response.candidates[0].content.parts[0].text
+  try {
+    const candidateText =
+      response?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      response?.candidates?.[0]?.content?.text ||
+      response?.text ||
+      undefined;
+
+    parsedData = safeParseJsonFromText(candidateText) as LaLigaData | null;
+  } catch (err) {
+    parsedData = null;
+  }
+
+  if (!parsedData) {
+    // Try to log full response for debugging (will appear in server logs)
+    console.error("Unable to parse JSON from AI response:", JSON.stringify(response, null, 2));
+    throw new Error("The AI returned data in an unexpected format. See server logs for details.");
+  }
+
+  // Defensive: ensure arrays exist
+  parsedData.club_stats = Array.isArray(parsedData.club_stats) ? parsedData.club_stats : undefined;
+  parsedData.player_stats = Array.isArray(parsedData.player_stats) ? parsedData.player_stats : undefined;
+
+  // Augment with local assets safely
+  try {
+    if (parsedData.club_stats) {
+      for (const category of parsedData.club_stats) {
+        if (!Array.isArray(category.data)) continue;
+        for (const club of category.data) {
+          const clubName = club.club_name || club.name || club.club;
+          if (clubName && !club.logo_url) {
+            const logoUrl = getClubLogoUrl(String(clubName));
+            if (logoUrl) club.logo_url = logoUrl;
+          }
         }
-
-        const jsonStr = rawText.substring(startIndex, endIndex + 1);
-        const parsedData = JSON.parse(jsonStr) as LaLigaData;
-        
-        // Augment with local data
-        if (parsedData.club_stats) {
-            for (const category of parsedData.club_stats) {
-                for (const club of category.data) {
-                    const clubName = club.club_name || club.club;
-                    if (clubName) {
-                        const logoUrl = getClubLogoUrl(clubName);
-                        if (logoUrl) {
-                            club.logo_url = logoUrl;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (parsedData.player_stats) {
-            for (const category of parsedData.player_stats) {
-                for (const player of category.data) {
-                    const playerName = player.full_name || player.name;
-                    const clubName = player.current_club || player.club;
-                    if (playerName && clubName) {
-                        const photoUrl = getPlayerPhotoUrl(clubName, playerName);
-                        if (photoUrl) {
-                            player.photo_url = photoUrl;
-                        }
-                    }
-                }
-            }
-        }
-        
-        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] | undefined;
-        
-        parsedData.sources = sources?.filter(s => s.web);
-
-        return parsedData;
-    } catch (e) {
-        console.error("Failed to parse JSON response:", response.text, e);
-        throw new Error("The AI returned real-time data in an invalid format. Please try adjusting your selection or try again.");
+      }
     }
+
+    if (parsedData.player_stats) {
+      for (const category of parsedData.player_stats) {
+        if (!Array.isArray(category.data)) continue;
+        for (const player of category.data) {
+          const playerName = player.full_name || player.name;
+          const clubName = player.current_club || player.club;
+          if (playerName && clubName && !player.photo_url) {
+            const photoUrl = getPlayerPhotoUrl(String(clubName), String(playerName));
+            if (photoUrl) player.photo_url = photoUrl;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Warning while augmenting local data:", err);
+    // continue without failing—augmentation is optional
+  }
+
+  // Attach sources if present (filter web grounding)
+  const sources = response?.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] | undefined;
+  if (sources) {
+    try {
+      // @ts-ignore - attach optionally for debugging/consumption
+      (parsedData as any).sources = sources.filter((s) => !!s.web);
+    } catch {
+      // ignore
+    }
+  }
+
+  return parsedData;
 };
