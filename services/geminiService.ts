@@ -9,11 +9,16 @@ import { getClubLogoUrl, getPlayerPhotoUrl } from './localData';
  */
 
 const createAiClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY environment variable not set. Please provide API_KEY.");
+  try {
+    const apiKey = import.meta.env.VITE_API_KEY;
+    if (!apiKey) {
+      throw new Error("VITE_API_KEY environment variable not set. Please provide API_KEY.");
+    }
+    return new GoogleGenAI({ apiKey });
+  } catch (error) {
+    console.error("Error creating AI client:", error);
+    throw error;
   }
-  return new GoogleGenAI({ apiKey });
 };
 
 const systemInstruction = `You are a sports data expert specializing in La Liga. Your task is to retrieve accurate, up-to-date statistics for the current season.
@@ -79,7 +84,7 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
   let response: any;
   try {
     response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-pro",
       // Use structured content form (supported by many SDK versions)
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       systemInstruction: {
