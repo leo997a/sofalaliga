@@ -2,11 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { LaLigaData, GroundingChunk } from '../types';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = import.meta.env.VITE_API_KEY;
 
 const systemInstruction = `You are a sports data expert specializing in La Liga. Your task is to retrieve accurate, up-to-date statistics for the current season using your search capabilities.
 
@@ -68,19 +64,27 @@ const buildPrompt = (clubStats: string[], playerStats: string[]): string => {
 
 
 export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[]): Promise<LaLigaData> => {
+    if (!apiKey) {
+        throw new Error("API_KEY not configured. Please set the VITE_API_KEY environment variable.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = buildPrompt(clubStats, playerStats);
 
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction: systemInstruction,
-            tools: [{googleSearch: {}}],
+    const generativeModel = ai.getGenerativeModel({
+        model: "gemini-1.5-flash-latest",
+        systemInstruction: {
+            parts: [{ text: systemInstruction }],
+            role: "model"
         },
+        tools: [{googleSearch: {}}],
     });
 
+    const result = await generativeModel.generateContent(prompt);
+    const response = result.response;
+
     try {
-        const rawText = response.text;
+        const rawText = response.text();
         const startIndex = rawText.indexOf('{');
         const endIndex = rawText.lastIndexOf('}');
         
@@ -91,13 +95,13 @@ export const fetchLaLigaStats = async (clubStats: string[], playerStats: string[
         const jsonStr = rawText.substring(startIndex, endIndex + 1);
         const parsedData = JSON.parse(jsonStr) as LaLigaData;
         
-        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] | undefined;
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingAttributions as GroundingChunk[] | undefined;
         
         parsedData.sources = sources?.filter(s => s.web);
 
         return parsedData;
     } catch (e) {
-        console.error("Failed to parse JSON response:", response.text, e);
+        console.error("Failed to parse JSON response:", response.text(), e);
         throw new Error("The AI returned real-time data in an invalid format. Please try adjusting your selection or try again.");
     }
 };
