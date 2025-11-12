@@ -9,12 +9,12 @@ import StatSelector from './components/StatSelector';
 import Loader from './components/Loader';
 import { FootballIcon, PersonIcon } from './components/icons';
 
-type Tab = 'club' | 'player' | 'export';
+type Tab = 'landing' | 'club' | 'player' | 'export';
 
 const IS_API_KEY_SET = import.meta.env.VITE_API_KEY && import.meta.env.VITE_API_KEY.length > 0;
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('club');
+  const [activeTab, setActiveTab] = useState<Tab>('landing');
   const [selectedClubStats, setSelectedClubStats] = useState<Set<string>>(new Set());
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<Set<string>>(new Set());
   
@@ -55,6 +55,8 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'club':
+        return <StatSelector title="Club Statistics" options={CLUB_STATS_OPTIONS} selected={selectedClubStats} setSelected={setSelectedClubStats} />;
       case 'player':
         return <StatSelector title="Player Statistics" options={PLAYER_STATS_OPTIONS} selected={selectedPlayerStats} setSelected={setSelectedPlayerStats} />;
       case 'export':
@@ -77,20 +79,57 @@ const App: React.FC = () => {
             </div>
           </div>
         );
-      case 'club':
+      case 'landing':
       default:
-        return <StatSelector title="Club Statistics" options={CLUB_STATS_OPTIONS} selected={selectedClubStats} setSelected={setSelectedClubStats} />;
+        return (
+          <div className="text-center py-12">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-brand-secondary p-8 rounded-xl shadow-lg mb-8">
+                <h2 className="text-2xl font-bold text-brand-accent mb-4">Welcome to La Liga Stats AI</h2>
+                <p className="text-brand-text-secondary mb-6">
+                  Get real-time, AI-powered statistics for La Liga clubs and players. 
+                  Select the statistics you're interested in and generate up-to-date data.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-brand-primary/50 p-4 rounded-lg">
+                    <div className="text-brand-accent text-2xl mb-2">1</div>
+                    <h3 className="font-bold text-white mb-2">Select Statistics</h3>
+                    <p className="text-brand-text-secondary text-sm">Choose club or player stats you want to see</p>
+                  </div>
+                  <div className="bg-brand-primary/50 p-4 rounded-lg">
+                    <div className="text-brand-accent text-2xl mb-2">2</div>
+                    <h3 className="font-bold text-white mb-2">Generate Data</h3>
+                    <p className="text-brand-text-secondary text-sm">Click generate to fetch real-time data</p>
+                  </div>
+                  <div className="bg-brand-primary/50 p-4 rounded-lg">
+                    <div className="text-brand-accent text-2xl mb-2">3</div>
+                    <h3 className="font-bold text-white mb-2">View & Download</h3>
+                    <p className="text-brand-text-secondary text-sm">Analyze results and download as JSON</p>
+                  </div>
+                </div>
+                <div className="flex justify-center space-x-4">
+                  <button 
+                    onClick={() => setActiveTab('club')}
+                    className="bg-brand-accent hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                  >
+                    Get Started
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
     }
   };
 
-  const TabButton: React.FC<{tabId: Tab; label: string}> = ({tabId, label}) => (
+  const TabButton: React.FC<{tabId: Tab; label: string; hideOnMobile?: boolean}> = ({tabId, label, hideOnMobile = false}) => (
     <button
       onClick={() => setActiveTab(tabId)}
       className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ease-in-out border-b-2 ${
         activeTab === tabId
           ? 'text-brand-accent border-brand-accent'
           : 'text-brand-text-secondary border-transparent hover:text-brand-text hover:border-gray-500'
-      }`}
+      } ${hideOnMobile ? 'hidden sm:block' : ''}`}
     >
       {label}
     </button>
@@ -117,16 +156,24 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary to-gray-900 p-4 sm:p-6 md:p-8">
       <div className="container mx-auto max-w-6xl bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-gray-700">
-        <header className="p-4 sm:p-6 md:p-8 border-b border-gray-700 text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white">
+        <header className="p-4 sm:p-6 md:p-8 border-b border-gray-700 text-center bg-gradient-to-r from-brand-primary to-brand-secondary">
+          <div className="flex justify-center mb-4">
+            <div className="bg-brand-accent w-16 h-16 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-2">
             <span className="text-brand-accent">La Liga</span> Stats AI
           </h1>
           <p className="text-brand-text-secondary mt-2 text-sm sm:text-base">Real-time, AI-powered statistics for the Spanish league</p>
         </header>
         
-        <nav className="flex justify-center border-b border-gray-700 overflow-x-auto">
+        <nav className="flex justify-center border-b border-gray-700 bg-brand-secondary overflow-x-auto">
+          <TabButton tabId="landing" label="Home" hideOnMobile={true} />
           <TabButton tabId="club" label="Club Statistics" />
           <TabButton tabId="player" label="Player Statistics" />
           <TabButton tabId="export" label="Generate & View" />
@@ -135,6 +182,10 @@ const App: React.FC = () => {
         <main className="p-4 sm:p-6">
           {renderContent()}
         </main>
+        
+        <footer className="p-4 border-t border-gray-700 text-center text-brand-text-secondary text-sm">
+          <p>Powered by AI • Real-time La Liga Statistics</p>
+        </footer>
       </div>
     </div>
   );
