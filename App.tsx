@@ -129,8 +129,8 @@ const ResultsDisplay: React.FC<{ data: LaLigaData }> = ({ data }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState('');
 
-  const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-  const API_KEY = process.env.API_KEY;
+  const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const API_KEY = import.meta.env.VITE_API_KEY;
   const isDriveExportConfigured = !!(CLIENT_ID && API_KEY);
 
   const FOLDER_ID = '1UqUKXCzyJEMtenJ-bTaN4jwb0XuqOG2M';
